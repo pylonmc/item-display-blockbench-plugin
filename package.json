@@ -2,16 +2,19 @@
   "name": "item-display-blockbench-plugin",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/main.ts",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "esbuild src/main.ts --bundle --packages=external --minify --outfile=dist/item-display.js",
+    "dev": "esbuild src/main.ts --bundle --packages=external --outfile=dist/item-display.js --watch"
   },
   "keywords": [],
-  "author": "",
+  "author": "Seggan",
   "license": "GPL-3.0-only",
-  "type": "commonjs",
   "devDependencies": {
-    "webpack": "^5.106.2",
-    "webpack-cli": "^7.0.2"
+    "blockbench-types": "^5.1.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.2"
   }
 }

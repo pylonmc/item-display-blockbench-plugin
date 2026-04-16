@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "outDir": "./dist/",
+    "noImplicitAny": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "allowJs": true,
+    "types": ["blockbench-types"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

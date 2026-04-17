@@ -1,3 +1,5 @@
+import { ItemDisplayElement } from "./item_display";
+
 const icon = "check_box_outline_blank"
 
 BBPlugin.register('item-display', {
@@ -11,7 +13,8 @@ BBPlugin.register('item-display', {
 });
 
 async function onLoad() {
-    let display_model_format = new ModelFormat("item_display_model", {
+    let displayModelFormat: ModelFormat = new ModelFormat("item_display_model", {
+        id: "item_display_model",
         icon: icon,
         name: "Display Model",
         category: "minecraft",
@@ -19,8 +22,8 @@ async function onLoad() {
         target: ["Minecraft: Java Edition (Plugins)", "Plugin Developers", "Minecraft Server Owners"],
         format_page: {
             component: {
-                methods: { 
-                    create: () => display_model_format.new()
+                methods: {
+                    create: () => displayModelFormat.new()
                 },
                 template: `
                 <div style="display:flex;flex-direction:column;height:100%">
@@ -56,12 +59,32 @@ async function onLoad() {
         edit_mode: true,
         paint_mode: false,
         animation_mode: false,
-        pose_mode: false,
-        new() {
-            newProject(display_model_format);
-            Project.texture_width = 16;
-            Project.texture_height = 16;
-            return true;
+        pose_mode: false
+    });
+
+    const displayModelFormatCondition: ConditionResolvable = {
+        formats: [displayModelFormat.id]
+    }
+
+    let add_action = new Action('add_item_display', {
+        name: 'Add Item Display',
+        icon: 'align_flex_end',
+        category: 'edit',
+        condition: displayModelFormatCondition,
+        click() {
+
+            Undo.initEdit({ outliner: true, elements: [], selection: true });
+            const display = new ItemDisplayElement({}).init();
+
+            const group = getCurrentGroup();
+            display.addTo(group);
+
+            unselectAllElements();
+            display.select();
+            Undo.finishEdit('Add Item Display', { outliner: true, elements: Outliner.selected, selection: true });
+
+            return display;
         }
     });
+    Interface.Panels.outliner.menu.addAction(add_action, 'add_element');
 }

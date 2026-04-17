@@ -13,7 +13,7 @@
   "author": "Seggan",
   "license": "GPL-3.0-only",
   "devDependencies": {
-    "blockbench-types": "^5.1.0",
+    "blockbench-types": "https://github.com/SnaveSutit/blockbench-types.git",
     "esbuild": "^0.28.0",
     "typescript": "^6.0.2"
   }

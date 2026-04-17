@@ -48,6 +48,13 @@ export class TextureManager {
             return this.textures.get(textureName)!;
         }
 
+        for (const texture of Texture.all) {
+            if (texture.name === textureName) {
+                this.textures.set(textureName, texture);
+                return texture;
+            }
+        }
+
         const url = `https://raw.githubusercontent.com/pylonmc/item-display-bbp-data/refs/heads/master/data/textures/${textureName}.png`;
         const dataUrl = await urlToDataUrl(url);
         const texture = new Texture({name: textureName}).fromDataURL(dataUrl).add();

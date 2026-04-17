@@ -1,6 +1,17 @@
-import { ItemDisplayElement } from "./item_display";
+import { TextureManager } from "./texture_manager";
+
+declare global {
+    interface Cube {
+        material: string;
+    }
+    interface Window {
+        manager: TextureManager;
+    }
+}
 
 const icon = "check_box_outline_blank"
+
+const unloadTasks: (() => void)[] = [];
 
 BBPlugin.register('item-display', {
     title: 'Item display builder',
@@ -9,10 +20,20 @@ BBPlugin.register('item-display', {
     description: '',
     version: '1.0.0',
     variant: 'both',
-    onload: onLoad
+    onload: onLoad,
+    onunload() {
+        for (const task of unloadTasks) {
+            task();
+        }
+    }
 });
 
 async function onLoad() {
+    const manager = new TextureManager();
+    unloadTasks.push(() => manager.clearCache());
+    window.manager = manager;
+    await manager.loadItems();
+
     let displayModelFormat: ModelFormat = new ModelFormat("item_display_model", {
         id: "item_display_model",
         icon: icon,
@@ -64,27 +85,71 @@ async function onLoad() {
 
     const displayModelFormatCondition: ConditionResolvable = {
         formats: [displayModelFormat.id]
+    };
+
+    new Property(Cube, "string", "material", {
+        default: "stone",
+        exposed: true,
+        condition: displayModelFormatCondition,
+    });
+
+    function generateDialogOptions(): {[key: string]: string} {
+        const options: {[key: string]: string} = {};
+        for (const item of manager.getItems()) {
+            let name = "";
+            for (const part of item.split("_")) {
+                name += part.charAt(0).toUpperCase() + part.slice(1) + " ";
+            }
+            options[item] = name.trimEnd();
+        }
+        console.log(options);
+        return options;
     }
 
-    let add_action = new Action('add_item_display', {
-        name: 'Add Item Display',
-        icon: 'align_flex_end',
-        category: 'edit',
-        condition: displayModelFormatCondition,
-        click() {
-
-            Undo.initEdit({ outliner: true, elements: [], selection: true });
-            const display = new ItemDisplayElement({}).init();
-
-            const group = getCurrentGroup();
-            display.addTo(group);
-
-            unselectAllElements();
-            display.select();
-            Undo.finishEdit('Add Item Display', { outliner: true, elements: Outliner.selected, selection: true });
-
-            return display;
+    const change_material_dialog = new Dialog({
+        title: "Change Material",
+        id: "material_dialog",
+        form: {
+            material: {label: "Material", type: "select", options: generateDialogOptions()}
+        },
+        async onConfirm(form_data) {
+            for (const cube of Cube.selected) {
+                cube.material = form_data.material;
+                await manager.updateCubeMaterial(cube);
+            }
         }
     });
-    Interface.Panels.outliner.menu.addAction(add_action, 'add_element');
+
+    const change_material_action = new Action("change_cube_material", {
+        name: "Change Material",
+        description: "Change the material of the cube, this is used for the generated item display!",
+        icon: icon,
+        condition: displayModelFormatCondition,
+        click() {
+            change_material_dialog.show();
+        }
+    });
+
+    Cube.prototype.menu?.addAction(change_material_action);
+    unloadTasks.push(() => change_material_action.delete());
+
+    const updateCube = async () => {
+        const cube = Cube.selected[0];
+        // cube.resize(-1, 0, false);
+        // cube.resize(-1, 1, false);
+        // cube.resize(-1, 2, false);
+        cube.from = [-0.5, -0.5, -0.5];
+        cube.to = [0.5, 0.5, 0.5];
+        cube.origin = [0, 0, 0];
+        cube.material = "stone";
+        cube.transferOrigin([0, 0, 0]); // update cube visual
+        await manager.updateCubeMaterial(cube);
+    };
+
+    Blockbench.on<EventName>("add_cube", updateCube);
+    unloadTasks.push(() => Blockbench.removeListener<EventName>("add_cube", updateCube));
+
+    const cleanup = () => manager.cleanupTextures();
+    Blockbench.on<EventName>("finished_edit", cleanup);
+    unloadTasks.push(() => Blockbench.removeListener<EventName>("finished_edit", cleanup));
 }

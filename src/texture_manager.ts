@@ -1,3 +1,10 @@
+const textureFixMap: Map<Face, Face> = new Map([
+    ["north", "south"],
+    ["south", "north"],
+    ["east", "west"],
+    ["west", "east"]
+]);
+
 export class TextureManager {
     private readonly items: Map<string, string> = new Map();
     private readonly models: Map<string, Map<Face, string>> = new Map();
@@ -59,8 +66,9 @@ export class TextureManager {
         cube.autouv = 0;
         for (const [face, textureName] of model.entries()) {
             const texture = await this.getTexture(textureName);
-            cube.applyTexture(texture, [face]);
-            const cubeFace = cube.faces[face];
+            const fixedFace = textureFixMap.get(face) ?? face;
+            cube.applyTexture(texture, [fixedFace]);
+            const cubeFace = cube.faces[fixedFace];
             if (cubeFace) {
                 cubeFace.uv = [0, 0, 16, 16];
             }

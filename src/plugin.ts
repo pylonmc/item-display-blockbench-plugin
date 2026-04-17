@@ -1,3 +1,4 @@
+import { generateCode } from "./codegen";
 import { TextureManager } from "./texture_manager";
 
 declare global {
@@ -5,7 +6,7 @@ declare global {
         material: string;
     }
     interface Window {
-        manager: TextureManager;
+        TextureManager: TextureManager;
     }
 }
 
@@ -28,10 +29,12 @@ BBPlugin.register('item-display', {
     }
 });
 
+let modelCodePanel: Panel;
+
 async function onLoad() {
     const manager = new TextureManager();
     unloadTasks.push(() => manager.clearCache());
-    window.manager = manager;
+    window.TextureManager = manager;
     await manager.loadItems();
 
     let displayModelFormat: ModelFormat = new ModelFormat("item_display_model", {
@@ -102,15 +105,14 @@ async function onLoad() {
             }
             options[item] = name.trimEnd();
         }
-        console.log(options);
         return options;
     }
 
-    const change_material_dialog = new Dialog({
+    const changeMaterialDialog = new Dialog({
         title: "Change Material",
         id: "material_dialog",
         form: {
-            material: {label: "Material", type: "select", options: generateDialogOptions()}
+            material: {label: "Material", type: "inline_select", options: generateDialogOptions()}
         },
         async onConfirm(form_data) {
             for (const cube of Cube.selected) {
@@ -119,37 +121,87 @@ async function onLoad() {
             }
         }
     });
+    unloadTasks.push(() => changeMaterialDialog.delete());
 
-    const change_material_action = new Action("change_cube_material", {
+    const changeMaterialAction = new Action("change_cube_material", {
         name: "Change Material",
         description: "Change the material of the cube, this is used for the generated item display!",
         icon: icon,
         condition: displayModelFormatCondition,
         click() {
-            change_material_dialog.show();
+            changeMaterialDialog.show();
         }
     });
+    unloadTasks.push(() => changeMaterialAction.delete());
 
-    Cube.prototype.menu?.addAction(change_material_action);
-    unloadTasks.push(() => change_material_action.delete());
+    Cube.prototype.menu?.addAction(changeMaterialAction);
 
-    const updateCube = async () => {
+    const finishedEdit = () => {
+        manager.cleanupTextures();
+        if (Project?.format.id !== displayModelFormat.id) return;
+        const code = generateCode(Project!.elements.filter(e => e instanceof Cube) as Cube[]);
+        (modelCodePanel.vue as any).text = code;
+    }
+    Blockbench.on<EventName>("finished_edit", finishedEdit);
+    unloadTasks.push(() => Blockbench.removeListener<EventName>("finished_edit", finishedEdit));
+
+    const addCube = async () => {
         const cube = Cube.selected[0];
-        // cube.resize(-1, 0, false);
-        // cube.resize(-1, 1, false);
-        // cube.resize(-1, 2, false);
         cube.from = [-0.5, -0.5, -0.5];
         cube.to = [0.5, 0.5, 0.5];
         cube.origin = [0, 0, 0];
         cube.material = "stone";
-        cube.transferOrigin([0, 0, 0]); // update cube visual
+        cube.transferOrigin(cube.origin); // update cube visual
         await manager.updateCubeMaterial(cube);
+        finishedEdit();
     };
 
-    Blockbench.on<EventName>("add_cube", updateCube);
-    unloadTasks.push(() => Blockbench.removeListener<EventName>("add_cube", updateCube));
+    Blockbench.on<EventName>("add_cube", addCube);
+    unloadTasks.push(() => Blockbench.removeListener<EventName>("add_cube", addCube));
 
-    const cleanup = () => manager.cleanupTextures();
-    Blockbench.on<EventName>("finished_edit", cleanup);
-    unloadTasks.push(() => Blockbench.removeListener<EventName>("finished_edit", cleanup));
+    const copyModelCodeAction = new Action("copy_model_code", {
+        name: "Copy Model Code",
+        description: "Copy the display model code to the clipboard",
+        icon: "content_copy",
+        click() {
+            Blockbench.showQuickMessage("Copied model code to clipboard!");
+            finishedEdit();
+            navigator.clipboard.writeText((modelCodePanel.vue as any).text);
+        }
+    });
+    unloadTasks.push(() => copyModelCodeAction.delete());
+
+    const modelCodeToolbar = new Toolbar("model_code_toolbar", {
+        id: "model_code_toolbar",
+        condition: displayModelFormatCondition,
+        children: [copyModelCodeAction]
+    });
+
+    modelCodePanel = new Panel("display_model_code_panel", {
+        id: "display_model_code_panel",
+        expand_button: true,
+        default_side: "right",
+        name: "Model Code",
+        icon: "code",
+        growable: true,
+        condition: displayModelFormatCondition,
+        toolbars: [modelCodeToolbar],
+        component: {
+            components: {
+                VuePrismEditor
+            },
+            data: {
+                text: `// There is nothing to display!
+// Try adding some cubes to get started!`,
+                yml: false,
+                scale_factor: false
+            },
+            template: `
+                <div>
+                    <vue-prism-editor v-model="text" language="java" readonly=true line-numbers />
+                </div>
+            `
+        }
+    });
+    unloadTasks.push(() => modelCodePanel.delete());
 }

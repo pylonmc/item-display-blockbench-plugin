@@ -147,9 +147,9 @@ async function onLoad() {
 
     const addCube = async () => {
         const cube = Cube.selected[0];
-        cube.from = [-0.5, -0.5, -0.5];
-        cube.to = [0.5, 0.5, 0.5];
-        cube.origin = [0, 0, 0];
+        cube.from = [0, 0, 0];
+        cube.to = [1, 1, 1];
+        cube.origin = [0.5, 0.5, 0.5];
         cube.material = "stone";
         cube.transferOrigin(cube.origin); // update cube visual
         await manager.updateCubeMaterial(cube);
